@@ -1,21 +1,44 @@
-#[contract]
-mod SimpleStorage {
-   struct Storage {
-       balance: felt252
-   }
+struct Auto {
+    marca: String,
+    modelo: String,
+    year: u256,
+    numeroPlaca: String
+}
 
-   #[event]
-   fn BalanceIncreased(balance: felt252) {}
+struct Papeleta {
+    ipfsCID: String,
+    autoInfo: Auto
+}
 
-   #[external]
-   fn increase_balance(amount: felt252) {
-      let new_balance = balance::read() + amount;
-      balance::write(new_balance);
-      BalanceIncreased(new_balance);
-   }
+struct Storage {
+    hasPapeleta: Map<Address, felt>,
+    papeletas: Map<u256, Papeleta>
+}
 
-   #[view]
-   fn get_balance() -> felt252 {
-       balance::read()
-   }
+contract PapeletaControl is ERC20 {
+    storage: Storage
+
+    constructor(name: String, symbol: String) ERC20(name, symbol) {
+        storage.hasPapeleta := {}
+        storage.papeletas := {}
+    }
+
+    function agregarPapeleta(string memory ipfsCID, string memory marca, string memory modelo, uint256 year, string memory numeroPlaca) external {
+        require(storage.hasPapeleta[msg.sender] == 0, "Ya tienes una papeleta");
+
+        uint256 tokenId = totalSupply() + 1;
+        _mint(msg.sender, tokenId);
+        storage.hasPapeleta[msg.sender] := tokenId;
+
+        Auto memory autoData = Auto(marca, modelo, year, numeroPlaca);
+        storage.papeletas[tokenId] = Papeleta(ipfsCID, autoData);
+    }
+
+    function pagarPapeleta() external {
+        require(storage.hasPapeleta[msg.sender] != 0, "No tienes una papeleta pendiente");
+
+        uint256 tokenId = storage.hasPapeleta[msg.sender];
+        _burn(msg.sender, tokenId);
+        storage.hasPapeleta[msg.sender] := 0;
+    }
 }
